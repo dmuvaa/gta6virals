@@ -2,33 +2,12 @@
 from __future__ import annotations
 
 import os
-import secrets
 
 BRAND = os.environ.get("BRAND_NAME", "Hypecut")
 TAGLINE = "Turn 12-hour streams into hundreds of clips, in minutes."
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8765").rstrip("/")
 SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "support@example.com")
 COMPANY = os.environ.get("COMPANY_NAME", BRAND)
-
-DATA_DIR = os.environ.get("DATA_DIR") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "work")
-DB_PATH = os.path.join(DATA_DIR, "app.db")
-
-
-def secret_key() -> str:
-    """SECRET_KEY from the environment, or one generated once and kept on the data disk
-    (so logins survive restarts)."""
-    if os.environ.get("SECRET_KEY"):
-        return os.environ["SECRET_KEY"]
-    os.makedirs(DATA_DIR, exist_ok=True)
-    path = os.path.join(DATA_DIR, ".secret_key")
-    if not os.path.exists(path):
-        with open(path, "w") as f:
-            f.write(secrets.token_hex(32))
-        os.chmod(path, 0o600)
-    with open(path) as f:
-        return f.read().strip()
-
 
 # Monthly limits per plan. "hours" = hours of video scanned; "exports" = clips made in HD.
 PLANS = {
