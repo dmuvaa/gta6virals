@@ -621,7 +621,8 @@ def main():
         raise SystemExit(1)
     os.makedirs(CACHE, exist_ok=True)
     print(f"worker {WORKER} started · storage: {'R2' if storage.r2_enabled() else 'local disk'}"
-          f" · captions: {'on' if captions.available() else 'off'}", flush=True)
+          f" · captions: {'on' if captions.available() else 'off'}"
+          f" · skipping: {', '.join(sorted(SKIP_SOURCES)) or 'nothing'}", flush=True)
     threading.Thread(target=_janitor, daemon=True).start()
     threading.Thread(target=_loop, args=(SLOW_KINDS, 2, 1.0), daemon=True).start()
     _loop(FAST_KINDS, 4, 0.3)  # previews and renders a user is waiting on
