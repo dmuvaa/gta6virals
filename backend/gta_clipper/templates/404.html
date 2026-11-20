@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section"><div class="container empty-state">
+  <span class="eyebrow">404</span>
+  <h1 style="font-size:44px;font-weight:900">This page went AFK</h1>
+  <p>The page you're looking for doesn't exist or was moved.</p>
+  <div class="row" style="justify-content:center"><a class="btn btn-primary" href="/">Go home</a>{% if user %}<a class="btn btn-outline" href="{{ url_for('pages.dashboard') }}">Dashboard</a>{% endif %}</div>
+</div></section>
+{% endblock %}

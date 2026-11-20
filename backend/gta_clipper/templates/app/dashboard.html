@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block bodyclass %}app-body{% endblock %}
+{% block navlinks %}{% with active='projects' %}{% include 'app/_nav.html' %}{% endwith %}{% endblock %}
+{% block content %}
+<div class="container app-page">
+  <div class="page-head">
+    <div><h1>Your projects</h1><p>Hi{% if user['name'] %} {{ user['name'] }}{% endif %}! Paste a stream to find its best moments.</p></div>
+    <a class="btn btn-primary" href="{{ url_for('pages.new_project') }}">+ New project</a>
+  </div>
+
+  {% set hpct = [100, (plan.used_hours / plan.hours * 100)|round(0)]|min %}
+  {% set epct = [100, (plan.used_exports / plan.exports * 100)|round(0)]|min %}
+  <div class="kpis">
+    <div class="card kpi"><div class="lbl">Plan</div><div class="val">{{ plan.name }}</div>
+      {% if plan.key == 'free' %}<a href="/pricing" style="font-size:13px;color:var(--sun);font-weight:600">Upgrade for captions &amp; more hours →</a>{% else %}<a href="{{ url_for('pages.account') }}" style="font-size:13px;color:var(--muted)">Manage plan</a>{% endif %}</div>
+    <div class="card kpi"><div class="lbl">Video scanned this month</div><div class="val">{{ '%.1f'|format(plan.used_hours) }} <small>/ {{ plan.hours }} h</small></div><div class="meter {{ 'warn' if hpct >= 90 }}"><i style="width:{{ hpct }}%"></i></div></div>
+    <div class="card kpi"><div class="lbl">Clips exported this month</div><div class="val">{{ plan.used_exports }} <small>/ {{ "{:,}".format(plan.exports) }}</small></div><div class="meter {{ 'warn' if epct >= 90 }}"><i style="width:{{ epct }}%"></i></div></div>
+    <div class="card kpi"><div class="lbl">Clips ready to download</div><div class="val">{{ projects|sum(attribute='ready') }}</div><div class="lbl" style="margin-top:6px">across {{ projects|length }} project{{ '' if projects|length == 1 else 's' }}</div></div>
+  </div>
+
+  {% if projects %}
+  <div class="projects" id="projects">
+    {% for p in projects %}
+    <a class="card proj" href="{{ url_for('pages.project', jid=p.id) }}" data-id="{{ p.id }}" data-stage="{{ p.stage }}">
+      <div class="thumb" style="{% if p.thumbnail %}background-image:url('{{ p.thumbnail }}'){% endif %}">
+        <span class="st">{% if p.stage == 'review' or p.stage == 'done' %}<span class="chip ok">Ready</span>{% elif p.stage == 'error' %}<span class="chip warn">Failed</span>{% elif p.stage == 'cancelled' %}<span class="chip dark">Cancelled</span>{% else %}<span class="chip a">Scanning… {{ (p.progress * 100)|round|int }}%</span>{% endif %}</span>
+      </div>
+      <div class="info">
+        <div class="t">{{ p.title }}</div>
+        <div class="m">{{ [p.platform, p.uploader]|select|join(' · ') }}</div>
+        <div class="nums">
+          {% if p.moments %}<span><b>{{ p.moments }}</b> moments</span>{% endif %}
+          <span><b>{{ p.kept }}</b> kept</span>
+          <span class="js-ago" data-t="{{ p.created }}"></span>
+        </div>
+        {% if p.stage == 'error' %}<div class="m" style="color:var(--bad)">{{ p.message }}</div>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card empty-state">
+    <div class="icon" style="width:56px;height:56px"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg></div>
+    <h2>No projects yet</h2>
+    <p>Paste a YouTube or Twitch link to a stream. We'll scan it and line up every moment with action for you to review.</p>
+    <a class="btn btn-primary" href="{{ url_for('pages.new_project') }}">Start your first project</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const ago = t => { const s = Date.now() / 1000 - t; if (s < 60) return 'just now'; if (s < 3600) return `${Math.floor(s / 60)}m ago`; if (s < 86400) return `${Math.floor(s / 3600)}h ago`; return `${Math.floor(s / 86400)}d ago`; };
+document.querySelectorAll('.js-ago').forEach(el => el.textContent = ago(+el.dataset.t));
+// Refresh while something is still scanning.
+if ([...document.querySelectorAll('.proj')].some(el => !['review', 'done', 'error', 'cancelled'].includes(el.dataset.stage))) setTimeout(() => location.reload(), 4000);
+</script>
+{% endblock %}

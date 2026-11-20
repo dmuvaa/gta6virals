@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block head %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{% for q, a in faq %}{"@type":"Question","name":{{ q|tojson }},"acceptedAnswer":{"@type":"Answer","text":{{ a|tojson }}}}{% if not loop.last %},{% endif %}{% endfor %}]}
+</script>
+{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">FAQ</span><h1 style="font-size:clamp(34px,5vw,52px);font-weight:900">Frequently asked questions</h1>
+      <p>Can't find what you need? Email <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p></div>
+    <div class="faq">{% for q, a in faq %}<details {% if loop.first %}open{% endif %}><summary>{{ q }}</summary><p>{{ a }}</p></details>{% endfor %}</div>
+  </div>
+</section>
+<section class="section-tight"><div class="container"><div class="cta-band"><h2>Ready to find your best moments?</h2><p>Start free. No credit card needed.</p><a class="btn btn-primary btn-lg" href="{{ url_for('auth.signup') }}">Start clipping free</a></div></div></section>
+{% endblock %}

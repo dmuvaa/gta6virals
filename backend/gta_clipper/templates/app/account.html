@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block bodyclass %}app-body{% endblock %}
+{% block navlinks %}{% with active='account' %}{% include 'app/_nav.html' %}{% endwith %}{% endblock %}
+{% block content %}
+{% set hpct = [100, (plan.used_hours / plan.hours * 100)|round(0)]|min %}
+{% set epct = [100, (plan.used_exports / plan.exports * 100)|round(0)]|min %}
+<div class="container app-page">
+  <div class="page-head"><div><h1>Account</h1><p>Manage your plan, password and data.</p></div></div>
+  {% if upgraded %}<div class="flash flash-ok" style="margin-bottom:18px">Thanks for upgrading! Your plan updates as soon as payment is confirmed (usually a few seconds).</div>{% endif %}
+  <div class="settings">
+    <nav aria-label="Account sections"><a href="#plan">Plan &amp; usage</a><a href="#profile">Profile</a><a href="#password">Password</a><a href="#danger">Delete account</a></nav>
+    <div>
+      <section class="card" id="plan">
+        <div class="spread"><div><h2>{{ plan.name }} plan</h2><p class="muted" style="font-size:14px">{% if plan.price %}${{ plan.price }}/month{% if user['plan_status'] and user['plan_status'] != 'active' %} · status: {{ user['plan_status'] }}{% endif %}{% else %}Free forever{% endif %} · limits reset on the 1st of each month</p></div>
+          <div class="row">
+            {% if plan.key == 'free' %}<a class="btn btn-primary btn-sm" href="/pricing">Upgrade</a>
+            {% elif billing and user['billing_customer'] %}<form method="post" action="{{ url_for('billing.portal') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm" type="submit">Manage billing</button></form>{% endif %}
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:18px">
+          <div><div class="spread" style="font-size:14px"><span class="muted">Video scanned</span><b>{{ '%.1f'|format(plan.used_hours) }} / {{ plan.hours }} h</b></div><div class="meter {{ 'warn' if hpct >= 90 }}"><i style="width:{{ hpct }}%"></i></div></div>
+          <div><div class="spread" style="font-size:14px"><span class="muted">Clips exported</span><b>{{ plan.used_exports }} / {{ "{:,}".format(plan.exports) }}</b></div><div class="meter {{ 'warn' if epct >= 90 }}"><i style="width:{{ epct }}%"></i></div></div>
+        </div>
+        <p class="muted" style="font-size:13px;margin-top:14px">Captions: {{ 'included' if plan.captions else 'not included' }} · Watermark: {{ 'yes' if plan.watermark else 'none' }} · Longest video: {{ plan.max_video_hours }} hours</p>
+      </section>
+
+      <section class="card" id="profile">
+        <h2>Profile</h2><p>Your login email.</p>
+        <div class="form-grid"><label class="field">Name <input value="{{ user['name'] }}" disabled></label><label class="field">Email <input value="{{ user['email'] }}" disabled></label></div>
+        <p class="muted" style="font-size:13px;margin-top:12px">To change your email, contact <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+      </section>
+
+      <section class="card" id="password">
+        <h2>Password</h2><p>Use at least 8 characters.</p>
+        <form method="post" action="{{ url_for('auth.change_password') }}" class="form-grid">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="field">Current password <input type="password" name="current" autocomplete="current-password" required></label>
+          <label class="field">New password <input type="password" name="new" autocomplete="new-password" minlength="8" required></label>
+          <div><button class="btn btn-sm" type="submit">Update password</button></div>
+        </form>
+      </section>
+
+      <section class="card" id="danger" style="border-color:#ff5d5d44">
+        <h2>Delete account</h2><p>Permanently deletes your account, all projects and all clips. This can't be undone.{% if plan.key != 'free' %} Cancel your subscription under Manage billing first, so you aren't charged again.{% endif %}</p>
+        <form method="post" action="{{ url_for('auth.delete_account') }}" class="row" onsubmit="return confirm('Delete your account and everything in it? This cannot be undone.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input name="confirm" placeholder="Type {{ user['email'] }} to confirm" style="max-width:340px" autocomplete="off">
+          <button class="btn btn-danger btn-sm" type="submit">Delete account</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

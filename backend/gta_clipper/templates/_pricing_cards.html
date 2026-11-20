@@ -1,0 +1,28 @@
+<div class="price-grid">
+  {% for key, p in plans.items() %}
+  <div class="card price {% if key == 'creator' %}featured{% endif %}">
+    {% if key == 'creator' %}<span class="badge">Most popular</span>{% endif %}
+    <div>
+      <h3>{{ p.name }}</h3>
+      <div class="amt"><b>${{ p.price }}</b><span>/ month</span></div>
+      <p class="blurb">{{ p.blurb }}</p>
+    </div>
+    <ul>{% for f in p.features %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% if key == 'free' %}
+      {% if user %}<a class="btn btn-outline btn-block" href="{{ url_for('pages.dashboard') }}">{% if user['plan'] == 'free' %}Your current plan{% else %}Go to dashboard{% endif %}</a>
+      {% else %}<a class="btn btn-outline btn-block" href="{{ url_for('auth.signup') }}">Start free</a>{% endif %}
+    {% elif user and user['plan'] == key %}
+      <a class="btn btn-outline btn-block" href="{{ url_for('pages.account') }}">Your current plan</a>
+    {% elif user %}
+      <button class="btn {% if key == 'creator' %}btn-primary{% else %}btn-outline{% endif %} btn-block js-upgrade" type="button" data-plan="{{ key }}" {% if not billing_enabled %}disabled title="Paid plans open soon"{% endif %}>{% if billing_enabled %}Upgrade to {{ p.name }}{% else %}{{ p.name }}: coming soon{% endif %}</button>
+    {% else %}
+      <a class="btn {% if key == 'creator' %}btn-primary{% else %}btn-outline{% endif %} btn-block" href="{{ url_for('auth.signup', next='/pricing') }}">Get {{ p.name }}</a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% if not billing_enabled %}<p class="muted" style="text-align:center;margin-top:18px;font-size:14px">Paid plans open soon. Start free today, and upgrade when billing goes live.</p>{% endif %}
+{% if user and billing_enabled %}
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script src="/static/checkout.js?v=1" defer></script>
+{% endif %}

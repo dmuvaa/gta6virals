@@ -1,0 +1,5 @@
+<nav class="nav-links" id="nav-links" aria-label="App">
+  <a href="{{ url_for('pages.dashboard') }}" {% if active == 'projects' %}aria-current="page"{% endif %}>Projects</a>
+  <a href="{{ url_for('pages.new_project') }}" {% if active == 'new' %}aria-current="page"{% endif %}>New project</a>
+  <a href="{{ url_for('pages.account') }}" {% if active == 'account' %}aria-current="page"{% endif %}>Account</a>
+</nav>
