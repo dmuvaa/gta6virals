@@ -1,34 +1,89 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# Three services share one Supabase project and one Cloudflare R2 bucket.
 services:
+  # ------------------------------------------------------------ Next.js website
   - type: web
-    name: hypecut
+    name: hypecut-web
+    runtime: node
+    rootDir: web
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_PUBLIC_SITE_URL          # e.g. https://hypecut.onrender.com or your domain
+        sync: false
+      - key: NEXT_PUBLIC_API_URL           # the hypecut-api URL, e.g. https://hypecut-api.onrender.com
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_AUTH_PROVIDERS    # optional: "google,twitch" once enabled in Supabase
+        sync: false
+      # Paddle (leave empty until approved; pricing shows "coming soon")
+      - key: NEXT_PUBLIC_PADDLE_ENV
+        value: sandbox
+      - key: NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_PADDLE_PRICE_CREATOR
+        sync: false
+      - key: NEXT_PUBLIC_PADDLE_PRICE_PRO
+        sync: false
+
+  # ------------------------------------------------------------ Python API
+  - type: web
+    name: hypecut-api
     runtime: docker
+    rootDir: backend
     dockerfilePath: ./Dockerfile
-    plan: standard            # 2 GB RAM / 1 CPU. "starter" (512 MB) is too small for video work.
+    plan: starter
     healthCheckPath: /healthz
     autoDeploy: true
-    disk:
-      name: data
-      mountPath: /data        # database, projects and clips live here
-      sizeGB: 50
     envVars:
-      - key: SITE_URL         # e.g. https://hypecut.onrender.com or your own domain
+      - fromGroup: hypecut-backend
+      - key: WEB_ORIGINS                   # the website URL(s), comma-separated, for CORS
         sync: false
-      - key: SUPPORT_EMAIL
+      - key: API_URL                       # this service's own public URL
         sync: false
-      - key: SECRET_KEY
-        generateValue: true
-      - key: ADMIN_EMAILS
+
+  # ------------------------------------------------------------ Worker (video processing)
+  - type: worker
+    name: hypecut-worker
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh -c "pip install -q -U yt-dlp >/dev/null 2>&1; exec python -m gta_clipper worker"
+    plan: standard                         # 2 GB RAM: decoding, previews, ffmpeg renders
+    autoDeploy: true
+    envVars:
+      - fromGroup: hypecut-backend
+
+envVarGroups:
+  - name: hypecut-backend                  # shared by API + worker
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY           # server-only
+        sync: false
+      - key: R2_ACCOUNT_ID                 # Cloudflare R2 is required in production
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
         sync: false
       - key: JOB_TTL_HOURS
         value: "48"
-      - key: MIN_FREE_GB
-        value: "5"
-      # Paddle Billing. Leave empty until your Paddle account is approved:
-      # the site works on the free plan and shows "paid plans open soon".
+      - key: BRAND_NAME
+        value: Hypecut
       - key: PADDLE_ENV
         value: sandbox
-      - key: PADDLE_CLIENT_TOKEN
-        sync: false
       - key: PADDLE_API_KEY
         sync: false
       - key: PADDLE_WEBHOOK_SECRET

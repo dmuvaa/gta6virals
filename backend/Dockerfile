@@ -32,9 +32,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY gta_clipper ./gta_clipper
 
 ENV PYTHONUNBUFFERED=1 \
-    DATA_DIR=/data \
+    DATA_DIR=/tmp/hypecut \
     WHISPER_MODEL=/models/ggml-base.en-q5_1.bin \
     PORT=10000
 EXPOSE 10000
-# One process (job state lives in memory), many threads (previews, renders, polling).
-CMD ["sh", "-c", "pip install -q -U yt-dlp >/dev/null 2>&1; exec gunicorn --bind 0.0.0.0:${PORT} --workers 1 --threads 32 --timeout 0 --access-logfile - 'gta_clipper.app:create_app()'"]
+# Default: the API. The worker service overrides this with `python -m gta_clipper worker`.
+# yt-dlp is updated on every start because YouTube/Twitch change often.
+CMD ["sh", "-c", "pip install -q -U yt-dlp >/dev/null 2>&1; exec gunicorn --bind 0.0.0.0:${PORT} --workers 1 --threads 32 --timeout 120 --access-logfile - 'gta_clipper.api:create_app()'"]
