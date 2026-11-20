@@ -36,7 +36,7 @@ envVarGroups:
         sync: false
       - key: SUPABASE_SECRET_KEY           # server-only
         sync: false
-      - key: R2_ACCOUNT_ID                 # Cloudflare R2 is required in production
+      - key: S3_ENDPOINT                   # Cloudflare R2 (required in production): the S3 API URL from the bucket's settings
         sync: false
       - key: R2_ACCESS_KEY_ID
         sync: false

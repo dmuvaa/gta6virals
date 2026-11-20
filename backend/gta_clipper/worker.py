@@ -555,7 +555,26 @@ def _loop(kinds: list[str], slots: int, idle: float):
         pool.submit(go)
 
 
+def _check_config() -> list[str]:
+    """Settings the worker can't run without, as human-readable problems."""
+    problems = [f"{k} is not set" for k in ("SUPABASE_URL", "SUPABASE_SECRET_KEY") if not os.environ.get(k)]
+    # On a host where the API runs on another machine (e.g. Render), files must go to R2:
+    # the API can't read the worker's disk, so previews and clips would never play.
+    if os.environ.get("RENDER") and not storage.r2_enabled():
+        endpoint, b = storage._endpoint_and_bucket()
+        missing = ([] if endpoint else ["S3_ENDPOINT (or R2_ACCOUNT_ID)"]) + ([] if b else ["R2_BUCKET"]) + \
+                  [k for k in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY") if not os.environ.get(k)]
+        problems.append("Cloudflare R2 is required in production; missing: " + ", ".join(missing))
+    return problems
+
+
 def main():
+    problems = _check_config()
+    if problems:
+        print("worker can't start. Fix these settings (Render: hypecut-backend env group, "
+              "linked to hypecut-worker):\n  - " + "\n  - ".join(problems), flush=True)
+        time.sleep(60)  # don't spin in a tight restart loop
+        raise SystemExit(1)
     os.makedirs(CACHE, exist_ok=True)
     print(f"worker {WORKER} started · storage: {'R2' if storage.r2_enabled() else 'local disk'}"
           f" · captions: {'on' if captions.available() else 'off'}", flush=True)
