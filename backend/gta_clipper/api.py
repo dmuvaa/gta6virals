@@ -64,14 +64,19 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
     db = client()
-    origins = {o.strip().rstrip("/") for o in os.environ.get(
-        "WEB_ORIGINS", "http://localhost:3000").split(",") if o.strip()}
+    def norm(o: str) -> str:
+        # Forgiving about how WEB_ORIGINS is typed: quotes, spaces, case, trailing slash or path.
+        o = o.strip().strip("'\"").strip().lower()
+        m = re.match(r"^(https?://[^/\s]+)", o)
+        return m.group(1) if m else o.rstrip("/")
+    origins = {norm(o) for o in re.split(r"[,\s]+", os.environ.get("WEB_ORIGINS", "http://localhost:3000")) if norm(o)}
+    app.logger.warning("CORS allowed origins: %s", sorted(origins))
 
     # ------------------------------------------------------------ CORS + headers
     @app.after_request
     def headers(resp):
-        origin = request.headers.get("Origin", "").rstrip("/")
-        if origin in origins:
+        origin = request.headers.get("Origin", "")
+        if origin and norm(origin) in origins:
             resp.headers["Access-Control-Allow-Origin"] = origin
             resp.headers["Vary"] = "Origin"
             resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
@@ -87,7 +92,9 @@ def create_app() -> Flask:
 
     @app.get("/healthz")
     def healthz():
-        return jsonify(ok=True)
+        # Allowed website origins are public anyway (browsers see them); listing them here
+        # makes CORS setup easy to check.
+        return jsonify(ok=True, cors_origins=sorted(origins))
 
     # ------------------------------------------------------------ auth helpers
     def login_required(view):
