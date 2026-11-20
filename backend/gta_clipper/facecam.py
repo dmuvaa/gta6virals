@@ -3,12 +3,21 @@ stream. In-game faces move around; the webcam doesn't."""
 from __future__ import annotations
 
 import subprocess
+import threading
 
 import cv2
 import numpy as np
 
 W, H = 960, 540
-_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+_tls = threading.local()
+
+
+def _cascade():
+    """OpenCV's face detector isn't thread-safe, so each thread gets its own."""
+    c = getattr(_tls, "cascade", None)
+    if c is None:
+        c = _tls.cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    return c
 
 # Fallback rectangles (fractions of the frame) for the manual corner presets.
 def corner_rect(corner: str, size: float = 0.28) -> dict:
@@ -68,7 +77,7 @@ def detect(paths: list[str], samples: int = 48, times: list[float] | None = None
             gy_sum += np.abs(cv2.Sobel(ff, cv2.CV_32F, 0, 1, ksize=3))
             seg = int(k * nseg / max(1, len(fl))) if single else idx
             f = cv2.equalizeHist(f)
-            for (x, y, w, h) in _cascade.detectMultiScale(f, 1.1, 5, minSize=(30, 30)):
+            for (x, y, w, h) in _cascade().detectMultiScale(f, 1.1, 5, minSize=(30, 30)):
                 x, y, w, h = x * sx, y * sx, w * sx, h * sx
                 if w <= 0.12 * W:  # webcam faces are small; skip close-ups / full-screen camera
                     boxes.append((x + w / 2, y + h / 2, w, h))
@@ -184,7 +193,7 @@ def camera_ratio_frames(frames: list[np.ndarray]) -> float:
         return 0.0
     hits = 0
     for f in frames:
-        faces = _cascade.detectMultiScale(cv2.equalizeHist(f), 1.1, 6,
+        faces = _cascade().detectMultiScale(cv2.equalizeHist(f), 1.1, 6,
                                           minSize=(int(0.12 * W), int(0.12 * W)))
         hits += len(faces) > 0
     return hits / len(frames)

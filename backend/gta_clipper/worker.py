@@ -342,7 +342,12 @@ def task_prefetch(t: dict):
     c = ctx(pid)
     overlay = p.get("overlay")
     if overlay is None:
-        overlay = _find_overlay(p, c)
+        try:
+            overlay = _find_overlay(p, c)
+        except Exception:  # webcam detection is a nice-to-have; previews matter more
+            traceback.print_exc()
+            overlay = {}
+            set_project(pid, overlay=overlay)
     todo = db().select("moments", "*", project_id=f"eq.{pid}", state="eq.new",
                        preview_key="is.null", order="rank.asc")
     done = [0]
