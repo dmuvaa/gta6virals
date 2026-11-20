@@ -36,6 +36,7 @@ ENV PYTHONUNBUFFERED=1 \
     WHISPER_MODEL=/models/ggml-base.en-q5_1.bin \
     PORT=10000
 EXPOSE 10000
-# Default: the API. The worker service overrides this with `python -m gta_clipper worker`.
-# yt-dlp is updated on every start because YouTube/Twitch change often.
-CMD ["sh", "-c", "pip install -q -U yt-dlp >/dev/null 2>&1; exec gunicorn --bind 0.0.0.0:${PORT} --workers 1 --threads 32 --timeout 120 --access-logfile - 'gta_clipper.api:create_app()'"]
+COPY start.sh ./start.sh
+RUN chmod +x ./start.sh
+# Default: the API. The worker service runs `./start.sh worker` (see render.yaml).
+CMD ["./start.sh", "api"]
