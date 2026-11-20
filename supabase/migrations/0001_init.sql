@@ -128,3 +128,38 @@ drop policy if exists "own moments" on public.moments;
 create policy "own moments" on public.moments for select using (
   exists (select 1 from public.projects p where p.id = project_id and p.user_id = (select auth.uid())));
 -- tasks: no policies = no access from the browser (backend only).
+
+-- ---------------------------------------------------------------- server-side functions
+-- Called by the Python backend over the Supabase API with the secret key only.
+
+-- Atomically hand the next queued task to a worker (safe with many workers).
+create or replace function public.claim_task(worker_name text, kinds text[] default null)
+returns setof public.tasks language plpgsql security definer set search_path = '' as $$
+begin
+  return query
+  update public.tasks t
+     set status = 'running', worker = worker_name, started_at = now(), attempts = t.attempts + 1
+   where t.id = (
+     select id from public.tasks
+      where status = 'queued' and (kinds is null or kind = any(kinds))
+      order by priority, id
+      for update skip locked
+      limit 1)
+  returning t.*;
+end $$;
+
+-- Add to this month's usage counters.
+create or replace function public.add_usage(uid uuid, add_seconds double precision, add_exports integer)
+returns void language sql security definer set search_path = '' as $$
+  insert into public.usage (user_id, period, seconds_scanned, exports)
+  values (uid, to_char(now() at time zone 'utc', 'YYYY-MM'), add_seconds, add_exports)
+  on conflict (user_id, period) do update
+    set seconds_scanned = public.usage.seconds_scanned + excluded.seconds_scanned,
+        exports = public.usage.exports + excluded.exports;
+$$;
+
+-- Only the backend (secret key → service_role) may call these.
+revoke all on function public.claim_task(text, text[]) from public, anon, authenticated;
+revoke all on function public.add_usage(uuid, double precision, integer) from public, anon, authenticated;
+grant execute on function public.claim_task(text, text[]) to service_role;
+grant execute on function public.add_usage(uuid, double precision, integer) to service_role;
