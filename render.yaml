@@ -28,6 +28,8 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: hypecut-backend
+      - key: WORKER_SKIP                   # set to "youtube" if YouTube jobs run on a home worker instead
+        sync: false
 
 envVarGroups:
   - name: hypecut-backend                  # shared by API + worker

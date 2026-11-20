@@ -63,6 +63,28 @@ shared `hypecut-backend` env group. Then:
   and the API key, webhook secret and price IDs (backend). Point a webhook at
   `https://YOUR-API/api/billing/webhook` for `subscription.*` events.
 
+## YouTube and cloud servers
+YouTube often blocks video requests from cloud data centers (errors like "Failed to extract any
+player response" or "Sign in to confirm you're not a bot"). Two layers handle this:
+
+1. **Token plugin (default).** The worker image runs the bgutil proof-of-origin token server
+   (`start.sh worker` starts it on 127.0.0.1:4416), and yt-dlp uses it through the
+   `bgutil-ytdlp-pot-provider` plugin, with Deno solving YouTube's player challenges.
+   The API never contacts YouTube's player: link previews use oEmbed, and the worker
+   checks length and plan limits.
+2. **Home worker (backup).** If YouTube still blocks the cloud worker, run a second worker on
+   a home connection (any always-on Mac or PC). Jobs come from the same Supabase queue and
+   files go to the same R2 bucket, so nothing else changes:
+   - On Render, set `WORKER_SKIP=youtube` on **hypecut-worker**. It then hands YouTube jobs
+     back to the queue and keeps doing Twitch.
+   - At home, put the same backend settings in `.env` (Supabase + R2), then run:
+
+```bash
+cd backend && .venv/bin/python -m gta_clipper worker
+```
+
+   Captions at home need `brew install whisper-cpp` and a model in `backend/models/`.
+
 ## Plans
 Defined in `backend/gta_clipper/config.py` and mirrored in `web/src/lib/site.ts`:
 - **Free:** 3 h/month, 10 exports, watermark, 4 h per video.

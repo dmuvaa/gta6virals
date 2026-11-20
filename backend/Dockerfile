@@ -14,6 +14,16 @@ ARG WHISPER_MODEL=ggml-base.en-q5_1.bin
 RUN mkdir -p /models && curl -fsSL -o /models/${WHISPER_MODEL} \
         https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${WHISPER_MODEL}
 
+# ---- Stage 1b: YouTube proof-of-origin token server (bgutil) ----
+# yt-dlp asks this local server for the tokens YouTube now expects, which helps requests
+# from cloud servers get through. Keep the version in step with the pip plugin below.
+FROM node:22-bookworm-slim AS pot
+ARG BGUTIL_VERSION=2.0.2
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 --branch ${BGUTIL_VERSION} https://github.com/Brainicism/bgutil-ytdlp-pot-provider /bgutil
+WORKDIR /bgutil/server
+RUN npm ci && npx tsc && npm prune --omit=dev
+
 # ---- Stage 2: the app ----
 FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,6 +34,11 @@ RUN mkdir -p /usr/share/fonts/truetype/archivo && curl -fsSL -o \
         /usr/share/fonts/truetype/archivo/ArchivoBlack-Regular.ttf \
         https://github.com/google/fonts/raw/main/ofl/archivoblack/ArchivoBlack-Regular.ttf
 COPY --from=whisper /src/build/bin/whisper-cli /usr/local/bin/whisper-cli
+# Node runtime + the built token server (started by start.sh in worker mode).
+COPY --from=pot /usr/local/bin/node /usr/local/bin/node
+COPY --from=pot /bgutil/server /opt/bgutil/server
+# Deno: the JavaScript runtime yt-dlp recommends for YouTube's player challenges.
+COPY --from=denoland/deno:bin-2.1.4 /deno /usr/local/bin/deno
 COPY --from=whisper /models /models
 
 WORKDIR /app

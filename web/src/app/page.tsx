@@ -86,7 +86,9 @@ export default function Home() {
       </section>
 
       <div className="strip"><div className="container strip-inner">
-        <span>▶ YouTube streams &amp; videos</span><span>● Twitch VODs &amp; clips</span><span>⬇ Exports for TikTok · Shorts · Reels · X</span>
+        <Link href="/tools/youtube-stream-clipper" style={{ textDecoration: "none" }}>▶ YouTube streams &amp; videos</Link>
+        <Link href="/tools/twitch-vod-clipper" style={{ textDecoration: "none" }}>● Twitch VODs &amp; clips</Link>
+        <Link href="/gta-6-clips" style={{ textDecoration: "none" }}>⬇ GTA 6 clips for TikTok · Shorts · Reels · X</Link>
       </div></div>
 
       <section className="section" id="features">
@@ -130,7 +132,7 @@ export default function Home() {
               <li>Fresh trims and captions on every clip, not the same cut everyone posts</li>
               <li>One download for all your kept clips</li>
             </ul>
-            <p className="muted" style={{ fontSize: 14, marginTop: 20 }}>Always follow each campaign&apos;s rules and only clip content you have permission to use.</p>
+            <p className="muted" style={{ fontSize: 14, marginTop: 20 }}>Always follow each campaign&apos;s rules and only clip content you have permission to use. <Link href="/guides/gta-6-clipping-campaigns" style={{ color: "var(--sun)" }}>Read the clipping campaigns guide →</Link></p>
           </div>
           <div className="phone-row" aria-hidden="true">
             <div className="phone"><div className="top" /><div className="bottom" /><div className="cap">HE DID <em>WHAT</em></div></div>

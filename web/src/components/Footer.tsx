@@ -19,6 +19,15 @@ export default function Footer({ signedIn }: { signedIn: boolean }) {
           <Link href="/#features">Features</Link><Link href="/#how">How it works</Link><Link href="/pricing">Pricing</Link><Link href="/faq">FAQ</Link>
         </div>
         <div>
+          <h4>Resources</h4>
+          <Link href="/gta-6-clips">GTA 6 clip maker</Link>
+          <Link href="/tools/twitch-vod-clipper">Twitch VOD clipper</Link>
+          <Link href="/tools/youtube-stream-clipper">YouTube stream clipper</Link>
+          <Link href="/tools/vertical-video-converter">Stream to 9:16</Link>
+          <Link href="/tools/auto-captions-for-gaming-clips">Auto captions</Link>
+          <Link href="/guides/gta-6-clipping-campaigns">Clipping campaigns guide</Link>
+        </div>
+        <div>
           <h4>Account</h4>
           {signedIn ? <><Link href="/app">Dashboard</Link><Link href="/app/account">Account &amp; billing</Link></>
                     : <><Link href="/signup">Sign up</Link><Link href="/login">Log in</Link></>}

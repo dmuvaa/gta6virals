@@ -13,6 +13,7 @@ import os
 import re
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import uuid
 import zipfile
@@ -46,6 +47,32 @@ def parse_time(v) -> float | None:
     for p in parts:
         total = total * 60 + p
     return total
+
+
+SUPPORTED = re.compile(r"^https?://(www\.|m\.|music\.)?(youtube\.com|youtu\.be|twitch\.tv|clips\.twitch\.tv)/", re.I)
+YOUTUBE = re.compile(r"^https?://(www\.|m\.|music\.)?(youtube\.com|youtu\.be)/", re.I)
+
+
+def light_probe(url: str) -> dict:
+    """Title/thumbnail for the link preview without touching YouTube's video player
+    (which blocks cloud servers): YouTube's public oEmbed endpoint for YouTube, yt-dlp for
+    Twitch. Length isn't known here; the worker finds it and checks plan limits."""
+    if YOUTUBE.match(url):
+        try:
+            q = urllib.parse.urlencode({"url": url, "format": "json"})
+            with urllib.request.urlopen(f"https://www.youtube.com/oembed?{q}", timeout=10) as r:
+                o = json.load(r)
+            return {"title": o.get("title", ""), "uploader": o.get("author_name", ""), "platform": "Youtube",
+                    "thumbnail": o.get("thumbnail_url"), "duration": 0}
+        except Exception:
+            return {"title": "", "uploader": "", "platform": "Youtube", "thumbnail": None, "duration": 0}
+    try:
+        info = download.probe(url)
+        info.pop("_raw", None)
+        info.pop("heatmap", None)
+        return info
+    except Exception:
+        return {"title": "", "uploader": "", "platform": "Twitch", "thumbnail": None, "duration": 0}
 
 
 def now_iso() -> str:
@@ -195,16 +222,9 @@ def create_app() -> Flask:
     @login_required
     def probe():
         url = ((request.get_json(silent=True) or {}).get("url") or "").strip()
-        if not re.match(r"https?://", url):
+        if not SUPPORTED.match(url):
             return err("Paste a full YouTube or Twitch link.")
-        try:
-            info = download.probe(url)
-        except Exception as e:
-            from .worker import friendly
-            return err(friendly(e))
-        info.pop("_raw", None)
-        info.pop("heatmap", None)
-        return jsonify(info)
+        return jsonify(light_probe(url))
 
     @app.get("/api/projects")
     @login_required
@@ -250,38 +270,25 @@ def create_app() -> Flask:
             clip_len = max(15.0, min(60.0, float(d.get("clip_len") or 45)))
         except (ValueError, TypeError) as e:
             return err(str(e))
-        try:
-            info = download.probe(url)
-        except Exception as e:
-            from .worker import friendly
-            return err(friendly(e))
-        total = info["duration"] or 0
-        if not total:
-            return err("Live streams can't be clipped yet. Use the VOD once the stream ends.")
-        ws = max(0.0, start or 0.0)
-        we = min(total, end) if end else total
-        if we <= ws:
+        if not SUPPORTED.match(url):
+            return err("Only YouTube and Twitch links are supported right now.")
+        if (start or 0) and end and end <= start:
             return err("The end time must be after the start time.")
-        seconds = we - ws
-        max_s = plan["max_video_hours"] * 3600
-        if seconds > max_s + 1:
-            return err(f"Your plan scans up to {plan['max_video_hours']} hours per video, and this is "
-                       f"{seconds / 3600:.1f} hours. Set a scan range, or upgrade for full-length streams.",
-                       upgrade=True)
-        left = plan["hours"] * 3600 - usage(g.uid)["seconds"]
-        if seconds > left + 60:
-            return err(f"This needs {seconds / 3600:.1f} hours of scanning, but your {plan['name']} plan has "
-                       f"{max(0, left) / 3600:.1f} hours left this month. Scan a shorter range or upgrade.",
-                       upgrade=True)
+        if usage(g.uid)["seconds"] >= plan["hours"] * 3600:
+            return err(f"You've used all {plan['hours']} hours on the {plan['name']} plan this month. "
+                       "Upgrade for more.", 402, upgrade=True)
+        # The API never contacts YouTube directly (it blocks cloud servers). The worker
+        # reads the video, checks plan limits against its real length, and charges usage.
+        info = light_probe(url)
         pid = uuid.uuid4().hex[:12]
         settings = {"format": fmt, "captions": bool(d.get("captions")) and plan["captions"],
                     "facecam_corner": corner, "clip_len": clip_len, "start": start, "end": end,
-                    "max_height": 1080, "watermark": f"Made with {config.BRAND}" if plan["watermark"] else ""}
-        db.insert("projects", {"id": pid, "user_id": g.uid, "url": url, "title": info["title"],
+                    "max_height": 1080, "watermark": f"Made with {config.BRAND}" if plan["watermark"] else "",
+                    "plan": {"name": plan["name"], "hours": plan["hours"], "max_video_hours": plan["max_video_hours"]}}
+        db.insert("projects", {"id": pid, "user_id": g.uid, "url": url, "title": info.get("title") or "",
                                "platform": info.get("platform", ""), "uploader": info.get("uploader", ""),
-                               "thumbnail": info.get("thumbnail"), "duration": total, "settings": settings,
-                               "message": "Waiting for a worker…"})
-        db.rpc("add_usage", uid=g.uid, add_seconds=seconds, add_exports=0)
+                               "thumbnail": info.get("thumbnail"), "duration": info.get("duration") or 0,
+                               "settings": settings, "message": "Waiting for a worker…"})
         enqueue(pid, "scan", priority=20)
         return jsonify(id=pid), 201
 

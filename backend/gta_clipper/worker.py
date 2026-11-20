@@ -52,7 +52,8 @@ def friendly(e: Exception) -> str:
         return "This video is private."
     if "sign in to confirm your age" in low:
         return "This video is age-restricted, so it can't be downloaded without signing in."
-    if "sign in to confirm you" in low and "bot" in low:
+    if ("sign in to confirm you" in low and "bot" in low) or "failed to extract any player response" in low \
+            or "po token" in low or "http error 429" in low:
         return "YouTube is blocking downloads from our servers right now. Try a Twitch link, or try again later."
     if "unsupported url" in low:
         return "That link isn't supported. Paste a YouTube video or a Twitch VOD or clip URL."
@@ -184,9 +185,29 @@ def task_scan(t: dict):
     we = min(total, float(s["end"])) if s.get("end") else total
     if we <= ws:
         raise ValueError("The end time must be after the start time.")
+    if not total:
+        raise ValueError("Live streams can't be clipped yet. Use the VOD once the stream ends.")
     set_project(pid, title=info["title"], platform=info.get("platform", ""),
                 uploader=info.get("uploader", ""), thumbnail=info.get("thumbnail"),
                 duration=total, mode="fast")
+
+    # Plan limits (checked here because only the worker reads the real video length).
+    seconds = we - ws
+    plan = s.get("plan") or {}
+    if plan and not (s.get("internal") or {}).get("charged"):
+        max_s = float(plan.get("max_video_hours", 0)) * 3600
+        if max_s and seconds > max_s + 1:
+            raise ValueError(f"Your plan scans up to {plan['max_video_hours']} hours per video, and this is "
+                             f"{seconds / 3600:.1f} hours. Set a scan range, or upgrade for full-length streams.")
+        row = db().one("usage", "*", user_id=f"eq.{p['user_id']}",
+                       period=f"eq.{time.strftime('%Y-%m', time.gmtime())}")
+        left = float(plan.get("hours", 0)) * 3600 - (row["seconds_scanned"] if row else 0)
+        if seconds > left + 60:
+            raise ValueError(f"This needs {seconds / 3600:.1f} hours of scanning, but your {plan.get('name', '')} plan "
+                             f"has {max(0, left) / 3600:.1f} hours left this month. Scan a shorter range or upgrade.")
+        db().rpc("add_usage", uid=p["user_id"], add_seconds=seconds, add_exports=0)
+        s = dict(s, internal=dict(s.get("internal") or {}, charged=True))  # retries don't charge twice
+        set_project(pid, settings=s)
 
     progress("downloading", 0.03, f"Scanning the audio of {fmt_time(we - ws)} of video…")
     cancel_flag = {"v": False, "t": 0.0}
@@ -462,8 +483,31 @@ HANDLERS = {"scan": task_scan, "prefetch": task_prefetch, "preview": task_previe
             "render": task_render, "frame": task_frame}
 
 
+SKIP_SOURCES = {s.strip().lower() for s in os.environ.get("WORKER_SKIP", "").split(",") if s.strip()}
+
+
+def _source(url: str) -> str:
+    u = (url or "").lower()
+    return "youtube" if ("youtube.com" in u or "youtu.be" in u) else "twitch" if "twitch.tv" in u else "other"
+
+
+def _skip(t: dict) -> bool:
+    """WORKER_SKIP=youtube makes this worker hand YouTube jobs back to the queue, e.g. on a
+    cloud server YouTube blocks, while a worker on a home connection picks them up."""
+    if not SKIP_SOURCES:
+        return False
+    p = db().one("projects", "url", id=f"eq.{t['project_id']}")
+    if not p or _source(p["url"]) not in SKIP_SOURCES:
+        return False
+    db().update("tasks", {"status": "queued", "worker": None, "attempts": max(0, t["attempts"] - 1)}, id=f"eq.{t['id']}")
+    time.sleep(2)  # let another worker take it
+    return True
+
+
 def run_task(t: dict):
     kind, pid = t["kind"], t["project_id"]
+    if _skip(t):
+        return
     try:
         HANDLERS[kind](t)
         db().update("tasks", {"status": "done", "finished_at": now_iso()}, id=f"eq.{t['id']}")

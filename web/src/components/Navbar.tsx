@@ -26,7 +26,7 @@ export default function Navbar({ user }: { user: NavUser }) {
 
   const links = inApp
     ? [["/app", "Projects"], ["/app/new", "New project"], ["/app/account", "Account"]]
-    : [["/#features", "Features"], ["/#how", "How it works"], ["/pricing", "Pricing"], ["/faq", "FAQ"]];
+    : [["/#features", "Features"], ["/gta-6-clips", "GTA 6 clips"], ["/pricing", "Pricing"], ["/faq", "FAQ"]];
   const isCurrent = (href: string) => (href === "/app" ? path === "/app" || path.startsWith("/app/p/") : path === href);
 
   async function logout() {
