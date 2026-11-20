@@ -46,10 +46,14 @@ cd web && npm install && npm run dev
 Requirements: Python 3.10+, Node 20+, and ffmpeg. Captions also need whisper.cpp
 (`brew install whisper-cpp`) and a model in `backend/models/`.
 
-## Deploy (Render)
-Dashboard → **New → Blueprint** → this repo. `render.yaml` creates `hypecut-web` (Node),
-`hypecut-api` (Docker) and `hypecut-worker` (Docker, background worker), plus a shared
-`hypecut-backend` env group. Then:
+## Deploy
+**Website → Vercel:** import the repo, set **Root Directory** to `web`, and add the
+`NEXT_PUBLIC_…` variables from `.env.example`. They're baked in at build time, so redeploy
+after changing them.
+
+**API + worker → Render:** Dashboard → **New → Blueprint** → this repo. `render.yaml`
+creates `hypecut-api` (Docker) and `hypecut-worker` (Docker, background worker), plus a
+shared `hypecut-backend` env group. Then:
 - **Cloudflare R2 is required in production:** create a bucket and an API token and set the
   `R2_*` variables.
 - Set `WEB_ORIGINS` and `API_URL` on the API, and `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SITE_URL`

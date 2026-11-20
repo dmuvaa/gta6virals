@@ -1,40 +1,6 @@
 # Render Blueprint: Dashboard → New → Blueprint → pick this repo.
-# Three services share one Supabase project and one Cloudflare R2 bucket.
+# Render runs the Python API + worker. The Next.js website (web/) is deployed on Vercel.
 services:
-  # ------------------------------------------------------------ Next.js website
-  - type: web
-    name: hypecut-web
-    runtime: node
-    rootDir: web
-    plan: starter
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_SITE_URL          # e.g. https://hypecut.onrender.com or your domain
-        sync: false
-      - key: NEXT_PUBLIC_API_URL           # the hypecut-api URL, e.g. https://hypecut-api.onrender.com
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-        sync: false
-      - key: NEXT_PUBLIC_SUPPORT_EMAIL
-        sync: false
-      - key: NEXT_PUBLIC_AUTH_PROVIDERS    # optional: "google,twitch" once enabled in Supabase
-        sync: false
-      # Paddle (leave empty until approved; pricing shows "coming soon")
-      - key: NEXT_PUBLIC_PADDLE_ENV
-        value: sandbox
-      - key: NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
-        sync: false
-      - key: NEXT_PUBLIC_PADDLE_PRICE_CREATOR
-        sync: false
-      - key: NEXT_PUBLIC_PADDLE_PRICE_PRO
-        sync: false
-
   # ------------------------------------------------------------ Python API
   - type: web
     name: hypecut-api
@@ -46,7 +12,7 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: hypecut-backend
-      - key: WEB_ORIGINS                   # the website URL(s), comma-separated, for CORS
+      - key: WEB_ORIGINS                   # the website URL(s) on Vercel, comma-separated, for CORS
         sync: false
       - key: API_URL                       # this service's own public URL
         sync: false
